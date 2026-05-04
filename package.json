@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tonaljs/tonal": "^4.10.0",
+    "@vercel/analytics": "^2.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tone": "^15.1.22"
