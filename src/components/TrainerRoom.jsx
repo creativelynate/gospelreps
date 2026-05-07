@@ -1,39 +1,49 @@
 import { useState } from 'react'
 import Piano from './Piano'
-import { resolveMovement, invertChord, getInversionLabel, stripOctave, buildChordName } from '../utils/transpose'
+import { resolveMovement, resolveMelody, invertChord, getInversionLabel, stripOctave, buildChordName } from '../utils/transpose'
 import { ALL_KEYS } from '../data/movements'
 import { usePlayback } from '../hooks/usePlayback'
 
 function TrainerRoom({ movement, onBack, playChord, playNote }) {
-  const [selectedKey, setSelectedKey]           = useState(movement.defaultKey)
+  const [selectedKey, setSelectedKey] = useState(movement.defaultKey)
   const [activeChordIndex, setActiveChordIndex] = useState(null)
-  const [chordInversions, setChordInversions]   = useState({})
-  const [activeNotes, setActiveNotes]           = useState([])
-  const [activeBassNote, setActiveBassNote]     = useState(null)
-  const [bpm, setBpm]                           = useState(120)
+  const [activeNotes, setActiveNotes] = useState([])
+  const [activeBassNote, setActiveBassNote] = useState(null)
+  const [activeMelodyNote, setActiveMelodyNote] = useState(null) // { note, octave, id }
+  const [showMelody, setShowMelody] = useState(true)
+  const [bpm, setBpm] = useState(movement.defaultBpm ?? 120)
 
   const resolvedChords = resolveMovement(movement, selectedKey)
+  const resolvedMelodyNotes = resolveMelody(movement, selectedKey)
   const hasLeftHand = resolvedChords.some(c => c.leftHandNote)
+  const hasMelody = resolvedMelodyNotes.length > 0
+  const beatsPerChord = movement.beatsPerChord ?? 2
 
   function getInversionForChord(i) {
-    return chordInversions[i] ?? 0
+    return resolvedChords[i]?.inversion ?? 0
   }
 
   const { isPlaying, currentStep, play, stop } = usePlayback({
     resolvedChords,
+    resolvedMelody: showMelody ? resolvedMelodyNotes : [],
     getInversionForChord,
     invertChord,
     playChord,
     playNote,
+    beatsPerChord,
     onStep: (i, inverted, leftHandNote) => {
       setActiveChordIndex(i)
       setActiveNotes(inverted)
       setActiveBassNote(leftHandNote ?? null)
     },
+    onMelodyStep: (melodyNote) => {
+      setActiveMelodyNote(melodyNote ?? null)
+    },
     onStop: () => {
       setActiveChordIndex(null)
       setActiveNotes([])
       setActiveBassNote(null)
+      setActiveMelodyNote(null)
     },
   })
 
@@ -43,6 +53,7 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
     const inverted = invertChord(chord.notes, inv)
     setActiveChordIndex(index)
     setActiveNotes(inverted)
+    setActiveMelodyNote(null)
     playChord(inverted)
     if (chord.leftHandNote) {
       const note = chord.leftHandNote.slice(0, -1)
@@ -71,6 +82,7 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
     setActiveChordIndex(null)
     setActiveNotes([id])
     setActiveBassNote(null)
+    setActiveMelodyNote(null)
     playNote(note, octave)
   }
 
@@ -79,12 +91,15 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
     setSelectedKey(key)
     setActiveNotes([])
     setActiveChordIndex(null)
-    setChordInversions({})
     setActiveBassNote(null)
+    setActiveMelodyNote(null)
   }
 
+  // The melody note id to highlight on the right-hand piano
+  const melodyHighlightId = activeMelodyNote?.id ?? null
+
   return (
-    <div style={{ padding: '2rem', maxWidth: 1060, margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: 1560, margin: '0 auto' }}>
 
       {/* Back */}
       <button
@@ -155,18 +170,54 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
         {hasLeftHand && (
           <div style={{ width: 1, height: 130, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
         )}
+
+        {/* Right hand piano — shows both chord notes and melody note */}
         <div style={{ flexShrink: 0 }}>
           {hasLeftHand && (
             <p style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(240,236,227,0.25)', marginBottom: 6, textAlign: 'center' }}>
               Right
             </p>
           )}
-          <Piano activeNotes={activeNotes} onNoteClick={handleNoteClick} octaves={[3, 4]} />
+
+          {/* Melody note badge above piano */}
+          {hasMelody && showMelody && (
+            <div style={{ marginBottom: 8, minHeight: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {activeMelodyNote ? (
+                <>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.12)',
+                    border: '0.5px solid rgba(255,255,255,0.25)',
+                    borderRadius: 4,
+                    padding: '3px 10px',
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#f0ece3',
+                    letterSpacing: '0.05em',
+                  }}>
+                    {activeMelodyNote.note}{activeMelodyNote.octave}
+                  </div>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(240,236,227,0.3)' }}>
+                    melody
+                  </span>
+                </>
+              ) : (
+                <div style={{ height: 24 }} />
+              )}
+            </div>
+          )}
+
+          <Piano
+            activeNotes={activeNotes}
+            melodyNote={showMelody ? melodyHighlightId : null}
+            onNoteClick={handleNoteClick}
+            octaves={[3, 4, 5]}
+          />
         </div>
       </div>
 
       {/* Play controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: '2rem', flexWrap: 'wrap' }}>
         <button
           onClick={() => isPlaying ? stop() : play(bpm)}
           style={{
@@ -196,6 +247,25 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
             {bpm} bpm
           </span>
         </div>
+
+        {/* Melody toggle */}
+        {hasMelody && (
+          <button
+            onClick={() => setShowMelody(v => !v)}
+            style={{
+              padding: '10px 16px',
+              background: showMelody ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: showMelody ? '#f0ece3' : 'rgba(240,236,227,0.3)',
+              border: '0.5px solid',
+              borderColor: showMelody ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
+              borderRadius: 6, cursor: 'pointer', fontSize: 12,
+              fontFamily: 'monospace', letterSpacing: '0.08em',
+              transition: 'all 0.15s',
+            }}
+          >
+            {showMelody ? '♪ Melody on' : '♪ Melody off'}
+          </button>
+        )}
       </div>
 
       {/* Chord steps */}
@@ -262,6 +332,46 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
           })}
         </div>
       </div>
+
+      {/* Melody steps readout */}
+      {hasMelody && showMelody && (
+        <div style={{ marginBottom: '2rem' }}>
+          <p style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(240,236,227,0.3)', marginBottom: 10 }}>
+            Melody
+          </p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {resolvedMelodyNotes.map((m, i) => {
+              const isActiveM = activeMelodyNote?.id === m.id && activeMelodyNote?.beat === m.beat
+              const durationLabel = m.duration === 0.5 ? '⅛' : m.duration === 1 ? '♩' : m.duration === 2 ? '𝅗𝅥' : '𝅝'
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    padding: '8px 10px',
+                    background: isActiveM ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    border: '0.5px solid',
+                    borderColor: isActiveM ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)',
+                    borderRadius: 4,
+                    transition: 'all 0.1s',
+                    minWidth: 36,
+                  }}
+                >
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: isActiveM ? '#f0ece3' : 'rgba(240,236,227,0.5)' }}>
+                    {m.note}
+                  </span>
+                  <span style={{ fontSize: 14, color: isActiveM ? 'rgba(240,236,227,0.8)' : 'rgba(240,236,227,0.25)' }}>
+                    {durationLabel}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(240,236,227,0.2)' }}>
+                    b{m.beat + 1}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Active notes readout */}
       {activeChordIndex !== null && (

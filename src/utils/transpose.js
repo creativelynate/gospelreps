@@ -13,6 +13,14 @@ const CHORD_INTERVALS = {
     min7: [0, 3, 7, 10],
     dom7: [0, 4, 7, 10],
     dim7: [0, 3, 6, 9],
+    sus2: [0, 2, 7],
+    sus4: [0, 5, 7],
+    maj9: [0, 4, 7, 11, 14],
+    dom9: [0, 4, 7, 10, 14],
+    min9: [0, 3, 7, 10, 14],
+    dom11: [0, 4, 7, 10, 14, 17],
+    dom13: [0, 4, 7, 10, 14, 17, 21],
+    minmaj7: [0, 3, 7, 11],
 }
 
 function noteToIndex(note) {
@@ -38,22 +46,55 @@ function buildChord(rootNote, type, startOctave = 4) {
     })
 }
 
+// Maps internal type keys → standard chord notation suffix
+const CHORD_DISPLAY = {
+    maj: '',        // C
+    min: 'm',       // Cm
+    aug: 'aug',     // Caug
+    dim: 'dim',     // Cdim
+    maj7: 'maj7',    // Cmaj7
+    min7: 'm7',      // Cm7
+    dom7: '7',       // C7
+    dim7: 'dim7',    // Cdim7
+    sus2: 'sus2',    // Csus2
+    sus4: 'sus4',    // Csus4
+    maj9: 'maj9',    // Cmaj9
+    dom9: '9',       // C9
+    min9: 'm9',      // Cm9
+    dom11: '11',     // C11
+    dom13: '13',     // C13
+    minmaj7: 'mM7',  // CmM7
+}
+
 export function buildChordName(chord, key) {
     const scale = buildScale(key)
+
+    // Resolve root note
     let rootIndex = noteToIndex(scale[(chord.degree - 1) % 7])
-    let chromaticRoot = (chord.chromaticRoot !== undefined) ? chord.chromaticRoot : 0
-    let chordType = (chord.type === "maj") ? "" : chord.type
+    if (chord.chromaticRoot) {
+        rootIndex = (rootIndex + chord.chromaticRoot) % 12
+    }
+    const rootNote = CHROMATIC[rootIndex]
 
-    let leftHand = null
-    let chromaticRootLeft = null
+    // Get display suffix — fall back to raw type if not in map
+    const suffix = CHORD_DISPLAY[chord.type] ?? chord.type
 
-    let IsThereALeftHand = (chord.leftHand !== undefined) ? true : false
-    if (IsThereALeftHand) {
-        let leftHand = noteToIndex(scale[(chord.leftHand.degree - 1) % 7])
-        let chromaticRootLeft = (chord.leftHand.chromaticOffset !== undefined) ? chord.leftHand.chromaticOffset : 0
+    const chordName = `${rootNote}${suffix}`
+
+    // Slash chord: C/G format
+    if (chord.leftHand) {
+        let lhIndex = noteToIndex(scale[(chord.leftHand.degree - 1) % 7])
+        if (chord.leftHand.chromaticOffset) {
+            lhIndex = (lhIndex + chord.leftHand.chromaticOffset) % 12
+        }
+        const bassNote = CHROMATIC[lhIndex]
+        // Only show slash if bass differs from chord root
+        if (bassNote !== rootNote) {
+            return `${chordName}/${bassNote}`
+        }
     }
 
-    return CHROMATIC[(Number(rootIndex) + Number(chromaticRoot))] + ((IsThereALeftHand) ? chordType + " / " + stripOctave(chord.leftHandNote) : "")
+    return chordName
 }
 
 export function resolveMovement(movement, key) {
@@ -80,6 +121,22 @@ export function resolveMovement(movement, key) {
         }
 
         return { ...chord, notes, leftHandNote }
+    })
+}
+
+export function resolveMelody(movement, key) {
+    if (!movement.melody || movement.melody.length === 0) return []
+    const scale = buildScale(key)
+
+    return movement.melody.map(m => {
+        const scaleNote = scale[(m.degree - 1) % 7]
+        return {
+            note: scaleNote,
+            octave: m.octave,
+            beat: m.beat,
+            duration: m.duration,
+            id: `${scaleNote}${m.octave}`,
+        }
     })
 }
 

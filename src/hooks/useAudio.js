@@ -48,7 +48,7 @@ export function useAudio() {
 function playNote(note, octave = 4) {
   if (!loadedRef.current) return
   samplerRef.current?.releaseAll()
-  samplerRef.current?.triggerAttackRelease(`${note}${octave}`, '2n')
+  samplerRef.current?.triggerAttackRelease(`${note}${octave}`, '1n')
 }
 
     return { playChord, playNote }

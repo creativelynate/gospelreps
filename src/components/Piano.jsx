@@ -26,10 +26,27 @@ function buildKeys(octaves) {
   return { whites, blacks }
 }
 
-function Piano({ activeNotes = [], onNoteClick, octaves = [3, 4] }) {
+function Piano({ activeNotes = [], melodyNote = null, onNoteClick, octaves = [3, 4] }) {
   const { whites, blacks } = buildKeys(octaves)
-  // activeNotes are like "C4", "E4" — match by full id
-  const activeSet = new Set(activeNotes)
+  const activeSet  = new Set(activeNotes)
+  const melodySet  = new Set(melodyNote ? [melodyNote] : [])
+
+  function getWhiteKeyBg(id) {
+    if (melodySet.has(id)) return '#e8a838'   // amber — melody
+    if (activeSet.has(id)) return '#c8a96e'   // gold  — chord
+    return '#f5f0e8'
+  }
+
+  function getBlackKeyBg(id) {
+    if (melodySet.has(id)) return '#b07820'   // dark amber — melody on black
+    if (activeSet.has(id)) return '#c8a96e'   // gold — chord
+    return '#1a1a1c'
+  }
+
+  function getLabelColor(id) {
+    if (melodySet.has(id) || activeSet.has(id)) return '#0e0e0f'
+    return 'rgba(0,0,0,0.25)'
+  }
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex', userSelect: 'none' }}>
@@ -43,7 +60,7 @@ function Piano({ activeNotes = [], onNoteClick, octaves = [3, 4] }) {
             style={{
               width: KEY_WIDTH,
               height: WHITE_HEIGHT,
-              background: activeSet.has(id) ? '#c8a96e' : '#f5f0e8',
+              background: getWhiteKeyBg(id),
               borderRadius: '0 0 6px 6px',
               border: '0.5px solid #ccc',
               cursor: 'pointer',
@@ -53,13 +70,28 @@ function Piano({ activeNotes = [], onNoteClick, octaves = [3, 4] }) {
               justifyContent: 'center',
               paddingBottom: 6,
               boxSizing: 'border-box',
+              position: 'relative',
             }}
           >
+            {/* Melody dot indicator */}
+            {melodySet.has(id) && (
+              <div style={{
+                position: 'absolute',
+                top: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: '#0e0e0f',
+                opacity: 0.5,
+              }} />
+            )}
             {note === 'C' && (
               <span style={{
                 fontSize: 10,
                 fontFamily: 'monospace',
-                color: activeSet.has(id) ? '#0e0e0f' : 'rgba(0,0,0,0.25)',
+                color: getLabelColor(id),
                 pointerEvents: 'none',
               }}>
                 C{octave}
@@ -85,15 +117,28 @@ function Piano({ activeNotes = [], onNoteClick, octaves = [3, 4] }) {
                 top: 0,
                 width: BLACK_WIDTH,
                 height: BLACK_HEIGHT,
-                background: activeSet.has(id) ? '#c8a96e' : '#1a1a1c',
+                background: getBlackKeyBg(id),
                 borderRadius: '0 0 4px 4px',
                 border: '0.5px solid rgba(255,255,255,0.1)',
                 zIndex: 2,
                 cursor: 'pointer',
                 pointerEvents: 'all',
                 transition: 'background 0.1s',
+                display: 'flex',
+                justifyContent: 'center',
               }}
-            />
+            >
+              {/* Melody dot on black key */}
+              {melodySet.has(id) && (
+                <div style={{
+                  marginTop: 8,
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.6)',
+                }} />
+              )}
+            </div>
           )
         })}
       </div>
