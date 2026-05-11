@@ -140,6 +140,27 @@ export function resolveMelody(movement, key) {
     })
 }
 
+export function resolveBassLine(movement, key) {
+  if (!movement.bassLine || movement.bassLine.length === 0) return []
+  const scale = buildScale(key)
+
+  return movement.bassLine.map((m, idx) => {
+    let noteIndex = noteToIndex(scale[(m.degree - 1) % 7])
+    if (m.chromaticOffset) {
+      noteIndex = (noteIndex + m.chromaticOffset) % 12
+    }
+    const note = CHROMATIC[noteIndex]
+    const octave = m.octave ?? 2
+    return {
+      note,
+      octave,
+      beat: m.beat,
+      duration: m.duration,
+      id: `bass-${note}${octave}-${idx}`,
+    }
+  })
+}
+
 export function invertChord(notes, inversion) {
     let result = [...notes]
     for (let i = 0; i < inversion; i++) {

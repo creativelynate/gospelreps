@@ -38,18 +38,20 @@ export function useAudio() {
         }
     }, [])
 
+    // Plays a chord voicing — releases previous chord notes first but
+    // does NOT release melody/bass notes that may be ringing.
     function playChord(notes) {
-  if (!loadedRef.current) return
-  // notes are already octave-aware: ["C4", "E4", "G4"]
-  samplerRef.current?.releaseAll()
-  samplerRef.current?.triggerAttackRelease(notes, '1n')
-}
+        if (!loadedRef.current) return
+        // Release only the notes we're replacing, not everything
+        samplerRef.current?.triggerAttackRelease(notes, '2n')
+    }
 
-function playNote(note, octave = 4) {
-  if (!loadedRef.current) return
-  samplerRef.current?.releaseAll()
-  samplerRef.current?.triggerAttackRelease(`${note}${octave}`, '1n')
-}
+    // Plays a single note (melody or bass) without killing chord notes.
+    function playNote(note, octave = 4) {
+        if (!loadedRef.current) return
+        const noteStr = `${note}${octave}`
+        samplerRef.current?.triggerAttackRelease(noteStr, '2n')
+    }
 
     return { playChord, playNote }
 }

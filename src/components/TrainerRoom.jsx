@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Piano from './Piano'
-import { resolveMovement, resolveMelody, invertChord, getInversionLabel, stripOctave, buildChordName } from '../utils/transpose'
+import { resolveMovement, resolveMelody, resolveBassLine, invertChord, getInversionLabel, stripOctave, buildChordName } from '../utils/transpose'
 import { ALL_KEYS } from '../data/movements'
 import { usePlayback } from '../hooks/usePlayback'
 
@@ -9,15 +9,16 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
   const [activeChordIndex, setActiveChordIndex] = useState(null)
   const [activeNotes, setActiveNotes] = useState([])
   const [activeBassNote, setActiveBassNote] = useState(null)
-  const [activeMelodyNote, setActiveMelodyNote] = useState(null) // { note, octave, id }
+  const [activeMelodyNote, setActiveMelodyNote] = useState(null)
   const [showMelody, setShowMelody] = useState(true)
   const [bpm, setBpm] = useState(movement.defaultBpm ?? 120)
 
-  const resolvedChords = resolveMovement(movement, selectedKey)
+  const resolvedChords      = resolveMovement(movement, selectedKey)
   const resolvedMelodyNotes = resolveMelody(movement, selectedKey)
-  const hasLeftHand = resolvedChords.some(c => c.leftHandNote)
-  const hasMelody = resolvedMelodyNotes.length > 0
-  const beatsPerChord = movement.beatsPerChord ?? 2
+  const resolvedBassNotes   = resolveBassLine(movement, selectedKey)
+  const hasLeftHand         = resolvedBassNotes.length > 0
+  const hasMelody           = resolvedMelodyNotes.length > 0
+  const beatsPerChord       = movement.beatsPerChord ?? 2
 
   function getInversionForChord(i) {
     return resolvedChords[i]?.inversion ?? 0
@@ -26,19 +27,18 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
   const { isPlaying, currentStep, play, stop } = usePlayback({
     resolvedChords,
     resolvedMelody: showMelody ? resolvedMelodyNotes : [],
+    resolvedBassLine: resolvedBassNotes,
     getInversionForChord,
     invertChord,
     playChord,
     playNote,
     beatsPerChord,
-    onStep: (i, inverted, leftHandNote) => {
+    onStep: (i, inverted) => {
       setActiveChordIndex(i)
       setActiveNotes(inverted)
-      setActiveBassNote(leftHandNote ?? null)
     },
-    onMelodyStep: (melodyNote) => {
-      setActiveMelodyNote(melodyNote ?? null)
-    },
+    onMelodyStep: (note) => setActiveMelodyNote(note ?? null),
+    onBassStep: (note) => setActiveBassNote(note ?? null),
     onStop: () => {
       setActiveChordIndex(null)
       setActiveNotes([])
@@ -54,26 +54,8 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
     setActiveChordIndex(index)
     setActiveNotes(inverted)
     setActiveMelodyNote(null)
+    setActiveBassNote(null)
     playChord(inverted)
-    if (chord.leftHandNote) {
-      const note = chord.leftHandNote.slice(0, -1)
-      const octave = parseInt(chord.leftHandNote.slice(-1))
-      setActiveBassNote(chord.leftHandNote)
-      playNote(note, octave)
-    } else {
-      setActiveBassNote(null)
-    }
-  }
-
-  function handleInversionChange(chordIndex, inv) {
-    setChordInversions(prev => ({ ...prev, [chordIndex]: inv }))
-    if (activeChordIndex === chordIndex) {
-      const inverted = invertChord(resolvedChords[chordIndex].notes, inv)
-      setActiveNotes(inverted)
-      playChord(inverted)
-      const lhn = resolvedChords[chordIndex].leftHandNote
-      if (lhn) playNote(lhn.slice(0, -1), parseInt(lhn.slice(-1)))
-    }
   }
 
   function handleNoteClick(note, octave) {
@@ -95,7 +77,6 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
     setActiveMelodyNote(null)
   }
 
-  // The melody note id to highlight on the right-hand piano
   const melodyHighlightId = activeMelodyNote?.id ?? null
 
   return (
@@ -161,8 +142,8 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
               Left
             </p>
             <Piano
-              activeNotes={activeBassNote ? [activeBassNote] : []}
-              onNoteClick={(note, octave) => { setActiveBassNote(`${note}${octave}`); playNote(note, octave) }}
+              activeNotes={activeBassNote ? [`${activeBassNote.note}${activeBassNote.octave}`] : []}
+              onNoteClick={(note, octave) => playNote(note, octave)}
               octaves={[2]}
             />
           </div>
@@ -171,7 +152,6 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
           <div style={{ width: 1, height: 130, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
         )}
 
-        {/* Right hand piano — shows both chord notes and melody note */}
         <div style={{ flexShrink: 0 }}>
           {hasLeftHand && (
             <p style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(240,236,227,0.25)', marginBottom: 6, textAlign: 'center' }}>
@@ -179,7 +159,7 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
             </p>
           )}
 
-          {/* Melody note badge above piano */}
+          {/* Melody note badge */}
           {hasMelody && showMelody && (
             <div style={{ marginBottom: 8, minHeight: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
               {activeMelodyNote ? (
@@ -234,7 +214,6 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
           {isPlaying ? '■ Stop' : '▶ Play'}
         </button>
 
-        {/* BPM control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <input
             type="range"
@@ -248,7 +227,6 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
           </span>
         </div>
 
-        {/* Melody toggle */}
         {hasMelody && (
           <button
             onClick={() => setShowMelody(v => !v)}
@@ -275,10 +253,9 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
         </p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {resolvedChords.map((chord, i) => {
-            const inv = getInversionForChord(i)
+            const inv      = getInversionForChord(i)
             const inverted = invertChord(chord.notes, inv)
             const isActive = activeChordIndex === i
-            const availableInversions = chord.inversions ?? []
 
             return (
               <div key={i} style={{ flex: 1, minWidth: 100, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -298,35 +275,7 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
                   <div style={{ fontSize: 11, fontWeight: 400, marginTop: 4, opacity: 0.6, fontFamily: 'monospace' }}>
                     {inverted.map(stripOctave).join(' ')}
                   </div>
-                  {chord.leftHandNote && (
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: 0.4, fontFamily: 'monospace', letterSpacing: '0.08em' }}>
-                      /{stripOctave(chord.leftHandNote)}
-                    </div>
-                  )}
                 </button>
-
-                {availableInversions.length > 0 && (
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {availableInversions.map(invOption => (
-                      <button
-                        key={invOption}
-                        onClick={() => handleInversionChange(i, invOption)}
-                        style={{
-                          flex: 1,
-                          padding: '4px 0',
-                          background: inv === invOption ? 'rgba(200,169,110,0.15)' : 'transparent',
-                          color: inv === invOption ? '#c8a96e' : 'rgba(240,236,227,0.3)',
-                          border: '0.5px solid',
-                          borderColor: inv === invOption ? 'rgba(200,169,110,0.4)' : 'rgba(255,255,255,0.06)',
-                          borderRadius: 3, cursor: 'pointer', fontSize: 10,
-                          fontFamily: 'monospace', transition: 'all 0.15s',
-                        }}
-                      >
-                        {getInversionLabel(invOption)}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )
           })}
@@ -373,11 +322,10 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
         </div>
       )}
 
-      {/* Active notes readout */}
+      {/* Active chord readout */}
       {activeChordIndex !== null && (
         <p style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 12, color: 'rgba(240,236,227,0.35)', letterSpacing: '0.1em' }}>
           {getInversionLabel(getInversionForChord(activeChordIndex))}
-          {activeBassNote && ` · bass ${stripOctave(activeBassNote)}`}
           {' — '}
           {invertChord(resolvedChords[activeChordIndex].notes, getInversionForChord(activeChordIndex)).join(' – ')}
         </p>

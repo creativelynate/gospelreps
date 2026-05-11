@@ -1,34 +1,22 @@
-import { useState } from 'react'
+import { Routes, Route } from 'react-router-dom'
 import HomePage from './components/HomePage'
-import TrainerRoom from './components/TrainerRoom'
+import MovementPage from './components/MovementPage'
 import { useAudio } from './hooks/useAudio'
+import { Analytics } from '@vercel/analytics/react'
 import { movements } from './data/movements'
-import { Analytics } from "@vercel/analytics/react"
 
 function App() {
-  const [currentRoom, setCurrentRoom] = useState(null)
   const { playChord, playNote } = useAudio()
-
-  if (currentRoom) {
-    return (
-      <>
-        <TrainerRoom
-          movement={currentRoom}
-          onBack={() => setCurrentRoom(null)}
-          playChord={playChord}
-          playNote={playNote}
-        />
-        <Analytics />
-      </>
-    ) 
-  }
 
   return (
     <>
-      <HomePage
-        movements={movements}
-        onSelect={(m) => setCurrentRoom(m)}
-      />
+      <Routes>
+        <Route path="/" element={<HomePage movements={movements} />} />
+        <Route
+          path="/movements/:id"
+          element={<MovementPage playChord={playChord} playNote={playNote} />}
+        />
+      </Routes>
       <Analytics />
     </>
   )

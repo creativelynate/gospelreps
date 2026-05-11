@@ -3,102 +3,119 @@ import { useRef, useState } from 'react'
 export function usePlayback({
   resolvedChords,
   resolvedMelody,
+  resolvedBassLine,
   getInversionForChord,
   invertChord,
   playChord,
   playNote,
   onStep,
   onMelodyStep,
+  onBassStep,
   onStop,
   beatsPerChord = 2,
 }) {
   const [isPlaying, setIsPlaying]     = useState(false)
   const [currentStep, setCurrentStep] = useState(null)
-  const timeoutsRef        = useRef([])
-  const activeMelodyIdRef  = useRef(null)   // ← tracks which note is currently active
+  const timeoutsRef       = useRef([])
+  const activeMelodyRef   = useRef(null)
+  const activeBassRef     = useRef(null)
 
   function stop() {
     timeoutsRef.current.forEach(clearTimeout)
     timeoutsRef.current = []
-    activeMelodyIdRef.current = null
+    activeMelodyRef.current = null
+    activeBassRef.current = null
     setIsPlaying(false)
     setCurrentStep(null)
     onStop?.()
   }
 
-  function play(bpm = 60 ) { //HERE (i want to add "default bpm" to movments)
-    if (isPlaying) { stop(); return }
-
-    const msPerBeat  = (60 / bpm) * 1000
-    const msPerChord =  msPerBeat * beatsPerChord
-
-    setIsPlaying(true)
-
-    let prevNotes = []
-    let prevBass  = null
-
-    resolvedChords.forEach((chord, i) => {
+  function scheduleNoteSequence({ notes, activeRef, onStep: onStepCb, playFn, msPerBeat }) {
+    notes.forEach((n, idx) => {
+      const token = `${n.id}-${idx}`
       const t = setTimeout(() => {
-        const inv      = getInversionForChord(i)
-        const inverted = invertChord(chord.notes, inv)
-        const lhn      = chord.leftHandNote ?? null
-
-        setCurrentStep(i)
-        onStep?.(i, inverted, lhn)
-
-        const newNotes = inverted.filter(n => !prevNotes.includes(n))
-        if (newNotes.length > 0) playChord(newNotes)
-
-        if (lhn && lhn !== prevBass) {
-          playNote(lhn.slice(0, -1), parseInt(lhn.slice(-1)))
-        }
-
-        prevNotes = inverted
-        prevBass  = lhn
-
-        if (i === resolvedChords.length - 1) {
-          const totalBeats = resolvedChords.length * beatsPerChord
-          const melodyEnd = resolvedMelody.length > 0
-            ? Math.max(...resolvedMelody.map(m => m.beat + m.duration))
-            : totalBeats
-          const endMs = Math.max(totalBeats, melodyEnd) * msPerBeat
-
-          const endT = setTimeout(() => {
-            setIsPlaying(false)
-            setCurrentStep(null)
-            onStop?.()
-          }, msPerChord + (endMs - totalBeats * msPerBeat))
-          timeoutsRef.current.push(endT)
-        }
-      }, i * msPerChord)
-
-      timeoutsRef.current.push(t)
-    })
-
-    // Schedule melody notes
-    resolvedMelody.forEach((melodyNote, idx) => {
-      // Use index-based unique token so same note can appear twice
-      const token = `${melodyNote.note}${melodyNote.octave}-${idx}`
-
-      const t = setTimeout(() => {
-        activeMelodyIdRef.current = token
-        onMelodyStep?.(melodyNote)
-        playNote(melodyNote.note, melodyNote.octave)
+        activeRef.current = token
+        onStepCb?.(n)
+        playFn(n.note, n.octave)
 
         const clearT = setTimeout(() => {
-          // Only clear if THIS note is still the active one
-          if (activeMelodyIdRef.current === token) {
-            activeMelodyIdRef.current = null
-            onMelodyStep?.(null)
+          if (activeRef.current === token) {
+            activeRef.current = null
+            onStepCb?.(null)
           }
-        }, melodyNote.duration * msPerBeat)
+        }, n.duration * msPerBeat)
         timeoutsRef.current.push(clearT)
-
-      }, melodyNote.beat * msPerBeat)
-
+      }, n.beat * msPerBeat)
       timeoutsRef.current.push(t)
     })
   }
+
+  function play(bpm = 60) {
+  if (isPlaying) { stop(); return }
+
+  const msPerBeat  = (60 / bpm) * 1000
+  const msPerChord = msPerBeat * beatsPerChord
+
+  setIsPlaying(true)
+
+  let prevNotes = []
+
+  // Determine total duration from all events
+  const chordBeats = resolvedChords.map((chord, i) =>
+    chord.beat != null ? chord.beat : i * beatsPerChord
+  )
+
+  // Schedule chords by beat
+  resolvedChords.forEach((chord, i) => {
+    const beatOffset = chord.beat != null ? chord.beat : i * beatsPerChord
+    const ms = beatOffset * msPerBeat
+
+    const t = setTimeout(() => {
+      const inv      = getInversionForChord(i)
+      const inverted = invertChord(chord.notes, inv)
+
+      setCurrentStep(i)
+      onStep?.(i, inverted)
+
+      const newNotes = inverted.filter(n => !prevNotes.includes(n))
+      if (newNotes.length > 0) playChord(newNotes)
+      prevNotes = inverted
+    }, ms)
+    timeoutsRef.current.push(t)
+  })
+
+  // End timer: find the last event across chords, melody, bass
+  const lastChordBeat = Math.max(...chordBeats) + beatsPerChord
+  const allSequences  = [...resolvedMelody, ...(resolvedBassLine ?? [])]
+  const sequenceEnd   = allSequences.length > 0
+    ? Math.max(...allSequences.map(m => m.beat + m.duration))
+    : 0
+  const totalMs = Math.max(lastChordBeat, sequenceEnd) * msPerBeat
+
+  const endT = setTimeout(() => {
+    setIsPlaying(false)
+    setCurrentStep(null)
+    onStop?.()
+  }, totalMs)
+  timeoutsRef.current.push(endT)
+
+  // Schedule melody and bass (unchanged)
+  scheduleNoteSequence({
+    notes: resolvedMelody,
+    activeRef: activeMelodyRef,
+    onStep: onMelodyStep,
+    playFn: playNote,
+    msPerBeat,
+  })
+
+  scheduleNoteSequence({
+    notes: resolvedBassLine ?? [],
+    activeRef: activeBassRef,
+    onStep: onBassStep,
+    playFn: playNote,
+    msPerBeat,
+  })
+}
 
   return { isPlaying, currentStep, play, stop }
 }

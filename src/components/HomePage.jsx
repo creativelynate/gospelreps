@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom'
+
 const TAG_STYLES = {
     beginner: { color: '#7db87d', border: 'rgba(125,184,125,0.4)' },
     worship: { color: '#7aa3cc', border: 'rgba(122,163,204,0.4)' },
@@ -5,7 +7,9 @@ const TAG_STYLES = {
     advanced: { color: '#c8a96e', border: 'rgba(200,169,110,0.4)' },
 }
 
-function HomePage({ movements, onSelect }) {
+function HomePage({ movements }) {
+    const navigate = useNavigate()
+
     return (
         <div style={{ padding: '2rem', maxWidth: 760, margin: '0 auto' }}>
 
@@ -38,7 +42,7 @@ function HomePage({ movements, onSelect }) {
                 {movements.map(m => (
                     <div
                         key={m.id}
-                        onClick={() => onSelect(m)}
+                        onClick={() => navigate(`/movements/${m.id}`)}
                         style={{
                             background: '#161618',
                             padding: '1.5rem',
