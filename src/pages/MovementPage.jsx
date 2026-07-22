@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { movements } from '../data/movements'
-import TrainerRoom from './TrainerRoom'
+import TrainerRoom from '../components/TrainerRoom'
 
-function MovementPage({ playChord, playNote }) {
+function MovementPage({ playChord, playNote, preset, setPreset }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const movement = movements.find(m => m.id === id)
@@ -11,10 +11,7 @@ function MovementPage({ playChord, playNote }) {
     return (
       <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(240,236,227,0.4)', fontFamily: 'monospace' }}>
         Movement not found.{' '}
-        <span
-          onClick={() => navigate('/')}
-          style={{ color: '#c8a96e', cursor: 'pointer' }}
-        >
+        <span onClick={() => navigate('/')} style={{ color: '#c8a96e', cursor: 'pointer' }}>
           Go back
         </span>
       </div>
@@ -27,6 +24,8 @@ function MovementPage({ playChord, playNote }) {
       onBack={() => navigate('/')}
       playChord={playChord}
       playNote={playNote}
+      preset={preset}
+      setPreset={setPreset}
     />
   )
 }

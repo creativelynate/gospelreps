@@ -3,8 +3,9 @@ import Piano from './Piano'
 import { resolveMovement, resolveMelody, resolveBassLine, invertChord, getInversionLabel, stripOctave, buildChordName } from '../utils/transpose'
 import { ALL_KEYS } from '../data/movements'
 import { usePlayback } from '../hooks/usePlayback'
+import SoundPresetPicker from './SoundPresetPicker'
 
-function TrainerRoom({ movement, onBack, playChord, playNote }) {
+function TrainerRoom({ movement, onBack, playChord, playNote, preset, setPreset }) {
   const [selectedKey, setSelectedKey] = useState(movement.defaultKey)
   const [activeChordIndex, setActiveChordIndex] = useState(null)
   const [activeNotes, setActiveNotes] = useState([])
@@ -244,6 +245,7 @@ function TrainerRoom({ movement, onBack, playChord, playNote }) {
             {showMelody ? '♪ Melody on' : '♪ Melody off'}
           </button>
         )}
+        <SoundPresetPicker preset={preset} setPreset={setPreset} />
       </div>
 
       {/* Chord steps */}
