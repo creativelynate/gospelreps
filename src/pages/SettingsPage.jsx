@@ -21,6 +21,11 @@ function SettingsPage() {
     const [profileLoading, setProfileLoading] = useState(false)
     const [passwordLoading, setPasswordLoading] = useState(false)
 
+    const [newEmail, setNewEmail] = useState('')
+    const [emailMsg, setEmailMsg] = useState(null)
+    const [emailErr, setEmailErr] = useState(null)
+    const [emailLoading, setEmailLoading] = useState(false)
+
     // Populate field once profile loads
     useEffect(() => {
         if (profile) setDisplayName(profile.display_name ?? '')
@@ -62,6 +67,18 @@ function SettingsPage() {
         }
         setPasswordLoading(false)
     }
+
+    async function handleChangeEmail() {
+        setEmailMsg(null)
+        setEmailErr(null)
+        if (!newEmail) { setEmailErr('Enter a new email.'); return }
+        setEmailLoading(true)
+        const { error } = await supabase.auth.updateUser({ email: newEmail })
+        if (error) setEmailErr(error.message)
+        else setEmailMsg('Confirmation sent to your new email address.')
+        setEmailLoading(false)
+    }
+
 
     async function handleSignOut() {
         await signOut()
@@ -119,6 +136,28 @@ function SettingsPage() {
                 {profileMsg && <Feedback type="success">{profileMsg}</Feedback>}
                 <SaveButton onClick={handleSaveProfile} loading={profileLoading}>
                     Save profile
+                </SaveButton>
+            </Section>
+
+            <Divider />
+
+            <Section title="Change email">
+                <p style={{ fontSize: 13, color: 'rgba(240,236,227,0.4)', margin: 0 }}>
+                    Current: <span style={{ color: '#f0ece3' }}>{user.email}</span>
+                </p>
+                <Field label="New email">
+                    <input
+                        type="email"
+                        placeholder="New email address"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                        style={inputStyle}
+                    />
+                </Field>
+                {emailErr && <Feedback type="error">{emailErr}</Feedback>}
+                {emailMsg && <Feedback type="success">{emailMsg}</Feedback>}
+                <SaveButton onClick={handleChangeEmail} loading={emailLoading}>
+                    Update email
                 </SaveButton>
             </Section>
 
