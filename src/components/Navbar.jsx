@@ -1,14 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useProfile } from '../hooks/useProfile'
 import AuthModal from './AuthModal'
 
 function Navbar() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { profile } = useProfile()
   const [showModal, setShowModal] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
+
+  const avatarLetter = profile?.display_name
+    ? profile.display_name[0].toUpperCase()
+    : user?.email?.[0].toUpperCase()
 
   return (
     <>
@@ -59,18 +65,34 @@ function Navbar() {
 
         {/* Auth */}
         {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'rgba(240,236,227,0.4)', fontFamily: 'monospace', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user.email}
-            </span>
-            <button onClick={signOut} style={ghostButtonStyle}>
-              Sign out
-            </button>
+          <div
+            onClick={() => navigate('/settings')}
+            style={{
+              width: 30, height: 30,
+              borderRadius: '50%',
+              background: '#c8a96e',
+              color: '#0a0a0b',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 800,
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            {avatarLetter}
           </div>
         ) : (
-          <button onClick={() => setShowModal(true)} style={ghostButtonStyle}>
+          // remove: import AuthModal from './AuthModal'
+          // remove: const [showModal, setShowModal] = useState(false)
+
+          // change the sign in button:
+          <button onClick={() => navigate('/auth')} style={ghostButtonStyle}>
             Sign in
           </button>
+
+          // remove: {showModal && <AuthModal onClose={() => setShowModal(false)} />}
         )}
 
       </nav>
