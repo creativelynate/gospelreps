@@ -5,19 +5,6 @@ function TermsPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: 640, margin: '0 auto' }}>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          background: 'transparent', border: 'none',
-          color: 'rgba(240,236,227,0.4)', fontSize: 13,
-          cursor: 'pointer', padding: 0, marginBottom: '2rem',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}
-        onMouseEnter={e => e.currentTarget.style.color = '#f0ece3'}
-        onMouseLeave={e => e.currentTarget.style.color = 'rgba(240,236,227,0.4)'}
-      >
-        ← Back
-      </button>
 
       <p style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#c8a96e', marginBottom: 6 }}>
         Legal
